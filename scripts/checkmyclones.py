@@ -6,11 +6,13 @@ from cogent import LoadSeqs, DNA
 import argparse
 from twobitreader import TwoBitFile
 import scripter
-from scripter import Usage, InvalidFileException, get_logger
+from scripter import Usage, get_logger, debug
 from pkg_resources import get_distribution
 import platform
+import signal
 import clonechecker
 import clonechecker.AlignClone
+import multiprocessing
 from clonechecker.AlignClone import CloneToRefAlignment
 from clonechecker.filetools import load_one_seq, read_bed_file, find_2bit_file
 __version__ = get_distribution('checkmyclones').version
@@ -32,7 +34,7 @@ def load_all_seqs(glob_path, moltype=DNA, recursive=True):
     return seqs
 
 def main():
-    e = scripter.Environment(doc=__doc__, version=VERSION)
+    e = scripter.Environment(doc=__doc__, version=VERSION, handle_files=False)
     parser = e.argument_parser
     parser.add_argument('--path-to-gbdb', default='/gbdb',
 help='Location of "gdbdb" or 2bit files. If gbdb is not in /gbdb or C:\gbdb, specify the path here')
@@ -44,7 +46,7 @@ help='Location of "gdbdb" or 2bit files. If gbdb is not in /gbdb or C:\gbdb, spe
     ggroup.add_argument('--hg19', const='hg19', action='store_const',
                help='Shortcut for --genome hg19') 
     ggroup.add_argument('--mm9', const='mm9', action='store_const',
-               help='Shortcut for --genome mm9') 
+               help='Shortcut for --genome mm9')
     parser.add_argument('--clones', nargs='+',
                         help='list of files that contain clone sequences')
     parser.add_argument('--references', nargs='*',
@@ -53,8 +55,8 @@ help='Location of "gdbdb" or 2bit files. If gbdb is not in /gbdb or C:\gbdb, spe
                         help='Use the regions listed in the bed file as reference sequences')
     parser.set_defaults(**{'genome': 'hg19'})
     args = parser.parse_args()
-    print args
     context = vars(args)
+    scripter.LOGGER.setLevel(context['logging_level'])
     clones = load_all_seqs(context['clones'], recursive=context['recursive'])
     if len(clones) == 0:
         raise Usage('Could not find any clone sequences')
@@ -62,24 +64,41 @@ help='Location of "gdbdb" or 2bit files. If gbdb is not in /gbdb or C:\gbdb, spe
         raise Usage('No reference sequeneces specified')
     else:
         ref_seqs = []
-        if context['bed_reference']:
+        if context['bed_reference'] is not None:
             genome = find_2bit_file(context['genome'], context['path_to_gbdb'])
+            debug('Using genome %s', genome)
             ref_seqs.extend(read_bed_file(context['bed_reference'],
                                           genome=genome))
-        if context['references']:
+        if context['references'] is not None:
             ref_seqs.extend(load_all_seqs(context['references'],
                                           recursive=context['recursive']))
         if len(ref_seqs) == 0:
             raise Usage('Could not find any reference sequences')
+    signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+    debug('multiprocessing enabled')
+    p = multiprocessing.Pool(processes=context['num_cpus'])
+    debug('Initialized pool of %d workers', context['num_cpus'])
+    results = []
     for clone in clones:
         for ref in ref_seqs:
-            print 'Comparing %s, %s' % (clone.Name, ref.Name)
-            aln = CloneToRefAlignment(clone, ref)
-            if aln.is_match(): print 'match found %s, %s' % (clone.Name, ref.Name)
-#            if aln.is_truncated: print 'truncated'
-#            if aln.has_gaps: print 'gaps'
-#            if aln.has_mismatches: print 'mismatches'
+            p.apply_async(compare_clone_to_ref, (clone, ref), context)
+#    for r in results: r.wait()
+    p.close()
+    p.join()
     return
 
+def compare_clone_to_ref(clone, ref, logging_level=20, **kwargs):
+    logger = get_logger(logging_level)
+    logger.info('Comparing %s, %s', clone.Name, ref.Name)
+    aln = CloneToRefAlignment(clone, ref)
+    if aln.is_match():
+        logger.info('match found %s, %s', clone.Name, ref.Name)
+    if aln.is_truncated:
+        logger.debug('alignment truncated (%s, %s)', clone.Name, ref.Name)
+    if aln.has_gaps:
+        logger.debug('alignment has gaps (%s, %s)', clone.Name, ref.Name)
+    if aln.has_mismatches:
+        logger.debug('alignment has mismatches (%s, %s)', clone.Name, ref.Name)
+    return
 
 if __name__=='__main__': main()

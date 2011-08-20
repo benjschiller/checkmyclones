@@ -15,18 +15,19 @@ try: import py2app
 except ImportError: pass
 
 def main():
-	if not float(sys.version[:3])>=2.6:
-		sys.stderr.write("CRITICAL: Python version must greater than or equal to 2.6! python 2.7.1 is recommended!\n")
+	if not float(sys.version[:3])>=2.7:
+		sys.stderr.write("CRITICAL: Python version must greater than or equal to 2.7! python 2.7.2 is recommended!\n")
 		sys.exit(1)
 	setup(name='checkmyclones',
-	      version='0.0.1',
+	      version='0.0.2',
 	      description="""Provides tools to check Sanger sequencing results
 	      (or any plain-text or FASTQ files) against a set of reference
 	      sequences, provided in any reasonable format (including coordinates)""",
 	      author='Benjamin Schiller',
 	      author_email='benjamin.schiller@ucsf.edu',
-	      install_requires = ['cogent>=1.5.0', 'scripter==2.9.0'],
-	      scripts = ['scripts/cmc.py'],
+	      requires = ['cogent (>=1.5.0)', 'scripter (>2.9.1, <3.0)'],
+	      url='http://github.com/benjschiller/checkmyclones',
+	      scripts = ['scripts/checkmyclones.py'],
 	      packages = ['clonechecker'],
 	      package_dir = {'': 'src'},
   	      classifiers = [
@@ -37,7 +38,6 @@ def main():
 				'Operating System :: MacOS :: MacOS X',
 				'Operating System :: Microsoft :: Windows',
 				'Operating System :: POSIX',
-				'Programming Language :: Python :: 2.6',
 				'Programming Language :: Python :: 2.7',
 				'Topic :: Scientific/Engineering :: Bio-Informatics'
 				]
