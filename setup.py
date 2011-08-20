@@ -25,8 +25,9 @@ def main():
 	      sequences, provided in any reasonable format (including coordinates)""",
 	      author='Benjamin Schiller',
 	      author_email='benjamin.schiller@ucsf.edu',
-	      install_requires = ['cogent'],
-	      packages = ['checkmyclones'],
+	      install_requires = ['cogent>=1.5.0', 'scripter==2.9.0'],
+	      scripts = ['scripts/cmc.py'],
+	      packages = ['clonechecker'],
 	      package_dir = {'': 'src'},
   	      classifiers = [
 				'Development Status :: 3 - Alpha',
@@ -38,6 +39,7 @@ def main():
 				'Operating System :: POSIX',
 				'Programming Language :: Python :: 2.6',
 				'Programming Language :: Python :: 2.7',
+				'Topic :: Scientific/Engineering :: Bio-Informatics'
 				]
 	      )
 	
