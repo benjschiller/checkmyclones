@@ -59,6 +59,7 @@ def find_2bit_file(ref_genome, path_to_gbdb=None):
     if ref_genome is None: raise ValueError("No reference genome specified")
     if os.path.exists(ref_genome): return ref_genome
     fname = "{!s}{!s}2bit".format(ref_genome, os.extsep)
+    if os.path.exists(fname): return fname
     if path_to_gbdb is not None:
         # check in its own dir
         specified_path = os.path.join(path_to_gbdb, ref_genome, fname)
