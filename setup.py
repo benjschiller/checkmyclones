@@ -19,7 +19,7 @@ def main():
 		sys.stderr.write("CRITICAL: Python version must greater than or equal to 2.7! python 2.7.2 is recommended!\n")
 		sys.exit(1)
 	setup(name='checkmyclones',
-	      version='0.0.3',
+	      version='0.0.4',
 	      description="""Provides tools to check Sanger sequencing results
 	      (or any plain-text or FASTQ files) against a set of reference
 	      sequences, provided in any reasonable format (including coordinates)""",
