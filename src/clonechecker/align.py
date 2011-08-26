@@ -8,43 +8,54 @@ from cogent import Alignment
 from cogent.core.sequence import SequenceI
 #from cogent.parse.record import FileFormatError
 
-class CloneToRefAlignment(Alignment):
+def align_clone_to_ref(clone, reference):
+    '''Aligns two pycogent Sequence objects with Smith-Waterman algorithm'''
+    if not isinstance(clone, SequenceI):
+        raise ValueError('clone must be a cogent.SequenceI object')
+    if not isinstance(reference, SequenceI):
+        raise ValueError('reference must be a cogent.SequenceI object')
+    aligned = sw_align(clone, reference)
+    ref_len = len(reference)
+    clone_matched = str(aligned[0].parseOutGaps()[1])
+    ref_matched = str(aligned[1].parseOutGaps()[1])
+    if ref_matched == '': raise AlignmentError('No alignment')
+    
+    aln = CloneAlignment(aligned)
+    # find where we are in the reference
+    aln.first_ref_pos = str(reference).index(ref_matched)
+    aln.first_clone_pos = str(clone).index(clone_matched)
+    aln.last_ref_pos = aln.first_ref_pos + len(ref_matched)
+    aln.last_clone_pos = aln.first_clone_pos + len(clone_matched)
+    match_len = len(ref_matched)
+    aln.reference_len = ref_len
+    aln.is_truncated = not match_len == ref_len
+    aln.has_gaps = aligned[1].isGapped()
+    aln.has_mismatches = not aligned[1].canMatch(aligned[0])
+    
+    aln.Seqs[0].Name = clone.Name
+    aln.Seqs[1].Name = reference.Name
+    return aln
+
+class CloneAlignment(Alignment):
     '''
-    Aligns two pycogent Sequence objects with Smith-Waterman algorithm
+    Class for representing two pycogent Sequence objects aligned
+        with Smith-Waterman algorithm
     has some methods for judging alignment
 
+    the constructor follows the same format as Alignment and SequenceCollection
+    (i.e. takes the data argument directly)
+    **The order of sequences matters**
     the first is assumed to be the sequencing result
     the second is assumed to be the reference sequence
     '''
 
-    def __init__(self, clone_seq, ref_seq):
+    def __init__(self, data, *args, **kwargs):
         '''
         Constructor
         '''
-        if not isinstance(clone_seq, SequenceI):
-            raise ValueError('clone_seq must be a cogent.SequenceI object')
-        if not isinstance(ref_seq, SequenceI):
-            raise ValueError('ref_seq must be a cogent.SequenceI object')
-        aligned = sw_align(clone_seq, ref_seq)
-        ref_len = len(ref_seq)
-        # find where we are in the reference
-        clone_matched = str(aligned[0].parseOutGaps()[1])
-        ref_matched = str(aligned[1].parseOutGaps()[1])
-        if ref_matched == '': raise AlignmentError('No alignment')
-        match_len = len(ref_matched)
-        self.first_ref_pos = str(ref_seq).index(ref_matched)
-        self.first_clone_pos = str(clone_seq).index(clone_matched)
-        self.last_ref_pos = self.first_ref_pos + len(ref_matched)
-        self.last_clone_pos = self.first_clone_pos + len(clone_matched)
-        
-        self.is_truncated = not match_len == ref_len
-        self.has_gaps = aligned[1].isGapped()
-        self.has_mismatches = not aligned[1].canMatch(aligned[0])
-        
-        super(CloneToRefAlignment, self).__init__(aligned)
-        self.Seqs[0].Name = clone_seq.Name
-        self.Seqs[1].Name = ref_seq.Name
-
+        super(CloneAlignment, self).__init__(data, *args, **kwargs)
+        self.Clone = self.Seqs[0]
+        self.Reference = self.Seqs[1]
 
     def is_match(self):
         """

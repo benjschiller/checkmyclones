@@ -1,3 +1,4 @@
-import AlignClone
+import align
+import filetools
 import TabFile
-__all__ = ["AlignClone", "TabFile"]
+__all__ = ["align", "filetools", "TabFile"]

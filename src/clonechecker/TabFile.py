@@ -2,6 +2,8 @@
 Created on Aug 11, 2011
 tools for dealing with files that have tabular data
 
+Taken from seriesoftubes with permission
+
 @author: ben
 '''
 import os
