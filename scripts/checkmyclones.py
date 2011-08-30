@@ -75,6 +75,10 @@ help='Location of "gdbdb" or 2bit files. If gbdb is not in /gbdb or C:\gbdb, spe
                help='Shortcut for --genome hg19') 
     ggroup.add_argument('--mm9', const='mm9', action='store_const',
                help='Shortcut for --genome mm9')
+    parser.add_argument('--reverse-orientation', action='store_true',
+                        help='Check only the reverse orientation')
+    parser.add_argument('--both-orientations', action='store_true',
+                        help='Check forward and reverse orientations')
     parser.add_argument('--clones', nargs='+',
                         help='list of files that contain clone sequences')
     parser.add_argument('--references', nargs='*',
@@ -113,13 +117,21 @@ help='Location of "gdbdb" or 2bit files. If gbdb is not in /gbdb or C:\gbdb, spe
     p = multiprocessing.Pool(processes=context['num_cpus'])
     debug('Initialized pool of %d workers', context['num_cpus'])
     results = []
+    forward = not context['reverse_orientation']
+    rc = context['reverse_orientation'] or context['both_orientations'] or False
     for ref in ref_seqs:
         print 'Loaded reference %s' % ref.Name
     for clone in clones:
         p.apply_async(announce_first, (clone,), context)
         for ref in ref_seqs:
-            r = p.apply_async(compare_clone_to_ref, (clone, ref), context)
-            results.append(r)
+            if forward:
+                r = p.apply_async(compare_clone_to_ref,
+                                  (clone, ref), context)
+                results.append(r)
+            if rc:
+                r = p.apply_async(compare_clone_to_ref,
+                                  (clone.rc(), ref), context)
+                results.append(r)
     p.close()
     p.join()
     result_values = []
@@ -171,14 +183,14 @@ def print_matched_alns(matched_alns):
     """
     print matched alignments to stdout
     """
-    for aln in alns:
+    for aln in matched_alns:
         if aln.has_mismatches:
             msg = 'Matched %s to %s with mismatches (%s / %s)'
-            print msg % (clone_name, aln.Reference.Name, len(aln),
+            print msg % (aln.Clone.Name, aln.Reference.Name, len(aln),
                          len(aln.degap().Seqs[1]))
         else:
             msg = 'Matched %s to %s perfectly'
-            print msg % (clone.name, aln.Reference.Name)
+            print msg % (aln.Clone.Name, aln.Reference.Name)
         print aln
 
 def announce_first(clone, logging_level=20, **kwargs):
