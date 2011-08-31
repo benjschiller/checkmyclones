@@ -203,13 +203,19 @@ def print_matched_alns(matched_alns):
                              len(aln.degap().Seqs[1]))
                 mismatches = [(i, x) for i, x in
                               enumerate(aln.iterPositions()) if not x[0]==x[1]]
-                coords = ref_name[ref_name.find('(') + 1:-1]
-                chr = coords[0:coords.find(':')]
-                start = coords[coords.find(':')+1:coords.find('-')]
-                for m in mismatches:
-                    msg = '\t\t%s %d (1-based position %d) %s->%s'
-                    print msg % (chr, int(start) + m[0] + 1, m[0] + 1, m[1][0],
-                                 m[1][1])
+                try:
+                    coords = ref_name[ref_name.find('(') + 1:-1]
+                    chr = coords[0:coords.find(':')]
+                    start = coords[coords.find(':')+1:coords.find('-')]
+                    for m in mismatches:
+                        msg = '\t\t%s %d (1-based position %d) %s->%s'
+                        print msg % (chr, int(start) + m[0] + 1, m[0] + 1, m[1][0],
+                                     m[1][1])
+                except ValueError, TypeError:
+                    for m in mismatches:
+                        msg = '\t\t1-based position %d %s->%s'
+                        print msg % (m[0] + 1, m[1][0],
+                                     m[1][1])
             else:
                 print '%s perfectly' % aln.Clone.Name
         fasta_print(ref, name=ref_name)
