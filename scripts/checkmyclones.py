@@ -10,11 +10,13 @@ from scripter import Usage, get_logger, debug
 from pkg_resources import get_distribution
 import platform
 import signal
+from logging import WARNING
+from pprint import pprint
 from itertools import groupby
 import multiprocessing
 from clonechecker.align import align_clone_to_ref, AlignmentError
-from clonechecker.filetools import load_one_seq, read_bed_file, find_2bit_file
-from operator import itemgetter
+from clonechecker.filetools import load_seqs, read_bed_file, find_2bit_file
+from operator import itemgetter, attrgetter
 try:
     from cPickle import dumps, loads
 except ImportError:
@@ -36,15 +38,16 @@ def load_all_seqs(glob_path, moltype=DNA, recursive=True):
             seqs.extend(load_all_seqs(p, moltype=DNA, recursive=True))
         return seqs
     for foo in glob(glob_path):
-        print 'Trying to import sequence %s' % foo
+        print 'Trying to import sequences from %s' % foo
         if os.path.isfile(foo):
             try:
-                seq = load_one_seq(foo, moltype=moltype)
+                myseqs = load_seqs(foo, moltype=moltype)
             except:
                 print 'ERROR: Loading %s failed' % foo
                 continue
-            seq.Name = '%s (%s)' % (seq.Name, foo)
-            seqs.append(seq)
+            for seq in myseqs:
+                seq.Name = '%s (%s)' % (seq.Name, foo)
+            seqs.extend(myseqs)
         elif recursive and os.path.isdir(foo):
             for boo in glob(os.path.join(foo,'*')):
                 seqs.extend(load_all_seqs(boo, moltype=moltype, recursive=True))
@@ -87,7 +90,7 @@ help='Location of "gdbdb" or 2bit files. If gbdb is not in /gbdb or C:\gbdb, spe
                         help='Use the regions listed in the bed file as reference sequences')
     parser.add_argument('--only-use-references', nargs='*',
                         help='Use the only regions with the following names')
-    parser.set_defaults(**{'genome': 'hg19'})
+    parser.set_defaults(**{'genome': 'hg19', 'logging_level': WARNING})
     args = parser.parse_args()
     context = vars(args)
     scripter.LOGGER.setLevel(context['logging_level'])
@@ -96,11 +99,12 @@ help='Location of "gdbdb" or 2bit files. If gbdb is not in /gbdb or C:\gbdb, spe
     if len(clones) == 0:
         raise Usage('Could not find any clone sequences')
     if context['references'] is None and context['bed_reference'] is None:
-        raise Usage('No reference sequeneces specified')
+        raise Usage('No reference sequences specified')
     else:
         if context['bed_reference'] is not None:
             genome = find_2bit_file(context['genome'], context['path_to_gbdb'])
-            debug('Using genome %s', genome)
+            print 'Fetching sequences from %s using %s' % (context['bed_reference'],
+                                                           genome)
             ref_seqs.extend(read_bed_file(context['bed_reference'],
                                           genome=genome))
         if context['references'] is not None:
@@ -140,18 +144,20 @@ help='Location of "gdbdb" or 2bit files. If gbdb is not in /gbdb or C:\gbdb, spe
         current_result = loads(current_pickle)
         if current_result is None: continue
         else: result_values.append(current_result)
+    all_matches = []
     for clone_name, group in groupby(result_values, key=itemgetter(0)):
         alns = map(itemgetter(1), list(group))
         is_matched = lambda aln: not aln.is_truncated and not aln.has_gaps
         matches = filter(is_matched, alns)
         if len(matches) > 0:
-            print_matched_alns(alns)
+            all_matches.extend(alns)
             continue
         elif len(alns) == 0:
             print 'No match for %s' % clone_name
             continue
         else:
             print_good_alns(alns)
+    print_matched_alns(all_matches)
     return
 
 def print_good_alns(alns):
@@ -183,15 +189,47 @@ def print_matched_alns(matched_alns):
     """
     print matched alignments to stdout
     """
-    for aln in matched_alns:
-        if aln.has_mismatches:
-            msg = 'Matched %s to %s with mismatches (%s / %s)'
-            print msg % (aln.Clone.Name, aln.Reference.Name, len(aln),
-                         len(aln.degap().Seqs[1]))
-        else:
-            msg = 'Matched %s to %s perfectly'
-            print msg % (aln.Clone.Name, aln.Reference.Name)
-        print aln
+    clones = []
+    references = []
+    print '='*60
+    for ref, group in groupby(matched_alns, key=attrgetter('Reference')):
+        ref_name = ref.Name
+        print 'Matches to %s:' % ref_name
+        alns = list(group)
+        for aln in alns:
+            if aln.has_mismatches:
+                msg = '\t%s with mismatches (%s / %s)'
+                print msg % (aln.Clone.Name, len(aln),
+                             len(aln.degap().Seqs[1]))
+                mismatches = [(i, x) for i, x in
+                              enumerate(aln.iterPositions()) if not x[0]==x[1]]
+                coords = ref_name[ref_name.find('(') + 1:-1]
+                chr = coords[0:coords.find(':')]
+                start = coords[coords.find(':')+1:coords.find('-')]
+                for m in mismatches:
+                    msg = '\t\t%s %d (1-based position %d) %s->%s'
+                    print msg % (chr, int(start) + m[0] + 1, m[0] + 1, m[1][0],
+                                 m[1][1])
+            else:
+                print '%s perfectly' % aln.Clone.Name
+        fasta_print(ref, name=ref_name)
+        for aln in alns:
+            fasta_print(aln.Clone, name=aln.Clone.Name)
+        print '='*60
+
+def fasta_print(a, name='', width=60):
+    """print an Aligned sequence object in fasta format"""
+    print '>%s' % name
+    j = 0
+    line = []
+    for x in a:
+        if j == width:
+            print ''.join(line)
+            line = []
+            j = 0
+        line.append(x)
+        j += 1
+    if len(line) > 0: print ''.join(line)
 
 def announce_first(clone, logging_level=20, **kwargs):
     """

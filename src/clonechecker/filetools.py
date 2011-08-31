@@ -15,7 +15,6 @@ from errno import ENOENT
 def load_one_seq(foo, moltype=DNA):
     """
     load one sequence from path foo if it is a FASTQ or plain-text file
-    else, if it is a BED file, 
     """   
     try:
         seqs = LoadSeqs(foo, aligned=False, format='fasta', moltype=moltype)
@@ -25,6 +24,21 @@ def load_one_seq(foo, moltype=DNA):
         name = os.path.basename(foo)
         seqs = LoadSeqs(data=[(name, s)], aligned=False, moltype=moltype)
     return seqs.Seqs[0]
+
+def load_seqs(foo, moltype=DNA):
+    """
+    load one or more sequences from path foo if it is a FASTQ or plain-text file
+    
+    returns a list of Seq objects
+    """   
+    try:
+        seqs = LoadSeqs(foo, aligned=False, format='fasta', moltype=moltype)
+    except FileFormatError:
+        fh = open(foo, 'rU')
+        s = fh.read().strip()
+        name = os.path.basename(foo)
+        seqs = LoadSeqs(data=[(name, s)], aligned=False, moltype=moltype)
+    return [seq for seq in seqs.Seqs]
 
 def write_to_fasta(file_handle, sequence, name=''):
     """write a record to a fasta file without closing it"""
@@ -47,7 +61,7 @@ def read_bed_file(foo, moltype=DNA, genome=None, write_fasta=True):
     for row in bf:
         chr, start, end = row.chrom(), row.chrom_start(), row.chrom_end()
         region_seq = t[chr][long(start):long(end)]
-        region_name = row.name() + ' (%s)' % '_'.join([chr, start, '-', end])
+        region_name = row.name() + ' (%s:%s-%s)' % (chr, start, end)
         if write_fasta: write_to_fasta(fasta_output, region_seq, name=region_name)
         s = LoadSeqs(data=[(region_name, region_seq)], aligned=False,
                      moltype=moltype)
