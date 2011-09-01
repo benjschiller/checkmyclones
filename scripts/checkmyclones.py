@@ -209,8 +209,8 @@ def print_matched_alns(matched_alns):
                     start = coords[coords.find(':')+1:coords.find('-')]
                     for m in mismatches:
                         msg = '\t\t%s %d (1-based position %d) %s->%s'
-                        print msg % (chr, int(start) + m[0] + 1, m[0] + 1, m[1][0],
-                                     m[1][1])
+                        print msg % (chr, int(start) + m[0] + 1, m[0] + 1,
+                                     m[1][1], m[1][0])
                 except ValueError, TypeError:
                     for m in mismatches:
                         msg = '\t\t1-based position %d %s->%s'
