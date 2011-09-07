@@ -181,6 +181,8 @@ def print_good_alns(alns):
         if max_length > aln.reference_len:
             print 'Also partially matched %s to %s with length %s / %s' % (
                      clone_name, aln.Reference.Name, len(aln), ref_len)
+            fasta_print(aln.Reference, name=aln.Reference.Name)
+            fasta_print(aln.Clone, name=clone_name)
             print aln
         else: break
     return
