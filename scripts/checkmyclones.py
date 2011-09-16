@@ -175,7 +175,8 @@ def print_good_alns(alns):
     clone_name = best_aln.Clone.Name
     print 'Partially matched %s to %s with length %s / %s' % (
             clone_name, best_aln.Reference.Name, max_length, ref_len)
-    print best_aln
+    fasta_print(best_aln.Reference, name=best_aln.Reference.Name)
+    fasta_print(best_aln.Clone, name=clone_name)
     if max_length > ref_len: return
     for aln in alns_sorted[1:]:
         if max_length > aln.reference_len:
